@@ -7,7 +7,7 @@ public class GameField : MonoBehaviour
 {
     public enum CellState
     {
-        Empty, Misdelivered, Occupied, Hit
+        Empty, Occupied, Misdelivered, Hit
     }
 
     public GameObject cellPrefab;

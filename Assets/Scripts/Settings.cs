@@ -9,10 +9,11 @@ using static GameField;
 
 public static class Settings 
 {
+    public static event Action<PlayerGameField> enemyInitialized;
     public static CellState[,] PlayerField { get; set; }
     public static CellState[,] EnemyField { get; set; }
 
-
+    static List<PlayerGameField> gameFields = new List<PlayerGameField>(2);
 
     public static Vector2 ConvertLinearCoordinateToDecart(int i, int width)
     {
@@ -46,6 +47,12 @@ public static class Settings
         var scaleFactor = desiredSize / currentSize;
         sr.transform.localScale *= scaleFactor;
         spriteSize = sr.bounds.size.x;
+    }
+
+    public static void RegisterGameField(PlayerGameField gameField)
+    {
+        gameFields.Add(gameField);
+        foreach (var gField in gameFields) enemyInitialized(gField);
     }
 
     static void SetComplexityLevel()

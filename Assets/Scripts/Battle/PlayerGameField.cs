@@ -1,4 +1,5 @@
-﻿using System.Collections;
+﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -6,11 +7,18 @@ public class PlayerGameField : GameField
 {
     public enum AttackResult
     {
-        Misdelivered, Hit, Sunk, Error
+        Error, Misdelivered = 2, Sunk, Hit
     }
 
     protected Animator[,] cellsAnimators;
-    protected bool toDiscloseFloorCells = true;
+    protected ShipsInfoStorage shipsInfoStorage = new ShipsInfoStorage();
+    protected bool toDiscloseFloorCells = true, isGameOver = false;
+
+    protected static PlayerGameField currentPlayer;
+    protected PlayerGameField enemy = null;
+    protected static int targetX, targetY;
+    protected static bool hasBeenInput = false;
+
 
     public PlayerGameField()
     {
@@ -23,7 +31,20 @@ public class PlayerGameField : GameField
     {
         if (Camera.main.aspect < 2)
             cellHeightToCameraHeightY = Camera.main.aspect / 22f;
+        Settings.enemyInitialized += OnEnemyInitialized;
+        Settings.RegisterGameField(this);
         base.Start();
+    }
+
+    private void OnEnemyInitialized(PlayerGameField gameField)
+    {
+        if (gameField.GetType() != GetType()) RegisterEnemy(gameField);
+    }
+
+    void RegisterEnemy(PlayerGameField gameField)
+    {
+        enemy = gameField;
+        if (this is PlayerGameField) currentPlayer = this;
     }
 
     protected override void OnCellGenerated(GameObject cell, int x, int y)
@@ -32,6 +53,7 @@ public class PlayerGameField : GameField
         var cellAnimator = cell.GetComponent<Animator>();
         cellsAnimators[x, y] = cellAnimator;
         body[x, y] = GetCellValue(x, y);
+        if (body[x, y] == CellState.Occupied) shipsInfoStorage.RegisterShipFloor(x, y);
         if (toDiscloseFloorCells) cellAnimator.SetInteger("CellState", (int)body[x, y]);
     }
 
@@ -47,11 +69,33 @@ public class PlayerGameField : GameField
         if (body[x, y] == CellState.Empty) body[x, y] = CellState.Misdelivered;
         else body[x, y] = CellState.Hit;
 
+        result = (AttackResult)Enum.Parse(typeof(AttackResult), body[x, y].ToString());
+        if (result == AttackResult.Hit)
+        {
+            result = DamageShip(x, y);
+            if (shipsInfoStorage.AreAllShipsSunk()) isGameOver = true;
+        }
+        else currentPlayer = this;
+        cellsAnimators[x, y].SetInteger("CellState", (int)result);
         return result;
     }
 
     protected bool CanReceiveAttack(int x, int y)
     {
-        return true;
+        var result = !Equals(currentPlayer) &&
+            body[x, y] != CellState.Misdelivered && body[x, y] != CellState.Hit;
+        return result;
+    }
+
+    AttackResult DamageShip(int x, int y)
+    {
+        var damagedShip = shipsInfoStorage.GetShipInfo(x, y);
+        damagedShip.HitFloor();
+        if (damagedShip.leftFloorsCount == 0)
+        {
+
+            return AttackResult.Sunk;
+        }      
+        return AttackResult.Hit;
     }
 }
